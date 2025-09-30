@@ -13,6 +13,7 @@ import { NotFoundError } from '@/errors/response-errors/not-found.error';
 import { EventService } from '@/events/event.service';
 import { ExternalHooks } from '@/external-hooks';
 import { addNodeIds, replaceInvalidCredentials } from '@/workflow-helpers';
+import { WorkflowExecutionService } from '@/workflows/workflow-execution.service';
 import { WorkflowFinderService } from '@/workflows/workflow-finder.service';
 import { WorkflowHistoryService } from '@/workflows/workflow-history/workflow-history.service';
 import { WorkflowService } from '@/workflows/workflow.service';
@@ -442,6 +443,52 @@ export = {
 			}
 
 			return res.json(tags);
+		},
+	],
+	executeWorkflow: [
+		apiKeyHasScope('workflow:execute'),
+		projectScope('workflow:execute', 'workflow'),
+		async (req: WorkflowRequest.Get, res: express.Response): Promise<express.Response> => {
+			const { id: workflowId } = req.params;
+
+			const workflow = await Container.get(WorkflowFinderService).findWorkflowForUser(
+				workflowId,
+				req.user,
+				['workflow:execute'],
+			);
+
+			if (!workflow) {
+				return res.status(404).json({ message: 'Not Found' });
+			}
+
+			// Execute the workflow
+			const workflowExecutionService = Container.get(WorkflowExecutionService);
+
+			try {
+				const result = await workflowExecutionService.executeManually(
+					{
+						workflowData: workflow,
+						runData: undefined,
+						startNodes: undefined,
+						destinationNode: undefined,
+					},
+					req.user,
+				);
+
+				if (result.executionId) {
+					Container.get(EventService).emit('workflow-pre-execute', {
+						executionId: result.executionId,
+						data: workflow,
+					});
+				}
+
+				return res.json(result);
+			} catch (error) {
+				if (error instanceof Error) {
+					return res.status(400).json({ message: error.message });
+				}
+				return res.status(500).json({ message: 'Internal Server Error' });
+			}
 		},
 	],
 };
