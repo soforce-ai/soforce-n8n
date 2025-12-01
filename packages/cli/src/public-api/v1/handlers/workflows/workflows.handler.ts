@@ -465,17 +465,21 @@ export = {
 			const workflowExecutionService = Container.get(WorkflowExecutionService);
 
 			try {
+				// Find the first trigger node to start execution from
+				const triggerNode = workflow.nodes.find((node) => node.type.includes('Trigger'));
+				if (!triggerNode) {
+					return res.status(400).json({ message: 'Workflow has no trigger node' });
+				}
+
 				const result = await workflowExecutionService.executeManually(
 					{
 						workflowData: workflow,
-						runData: undefined,
-						startNodes: undefined,
-						destinationNode: undefined,
+						triggerToStartFrom: { name: triggerNode.name },
 					},
 					req.user,
 				);
 
-				if (result.executionId) {
+				if ('executionId' in result) {
 					Container.get(EventService).emit('workflow-pre-execute', {
 						executionId: result.executionId,
 						data: workflow,
