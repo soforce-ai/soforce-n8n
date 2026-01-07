@@ -23,9 +23,7 @@ jobs:
           filters: |
             design_system:
               - 'packages/frontend/@n8n/design-system/**'
-              - 'packages/frontend/@n8n/chat/**'
-              - 'packages/frontend/@n8n/storybook/**'
-              - '.github/workflows/test-visual-chromatic.yml'
+              - '.github/workflows/test-visual-storybook.yml'
     outputs:
       has_changes: ${{ steps.changed.outputs.design_system || 'false' }}
 
